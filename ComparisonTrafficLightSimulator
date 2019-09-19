@@ -1,0 +1,314 @@
+# Simulator to test ultrasonic senor packets effect on traffic light
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+
+#intilize varibles
+
+CurrentLightsColors = {}
+
+#1 cycle represents a second of the simulation
+cycles = 0
+
+# when ever cycles is bigger than GenerateCar or IncomingCarsArrive, then a car is generated or the incoming cars IncomingCarsArrive
+GenerateCar = 3
+IncomingCarsArrive = 4
+
+#Ultra used below refers to our traffic light sim with ultrasonic feedback
+CarWaiting = False
+UltraCarWaiting = False
+CarsWaiting = 0
+UltraCarsWaiting = 0
+CyclesWaiting = 0
+UltraCyclesWaiting = 0
+LastLightColor = 0
+LastUltraLightColor = 0
+
+#Reps done = true when we have gone through multiple sequences
+RepsDone = False
+ThreeCycles = 3
+IncomingCar = False
+
+#Need two seperate stop light states, one will be on a timer, one will be based off ultrasonic sensor fdbk
+StopLightState = 0
+StopLightStateULTRAFDBK = 0
+
+# 1 / North South Green 2 / West East Green 3 / North South Yellow Green 4 / West East Yellow
+CurrentLightColor = 1;
+CurrentLightColorULTRAFDBK = 1;
+
+#below varibles are so that we dont change the light sequence more than one per cycle
+LightColorULTRAFDBKMemory = 1;
+TookActionOnCar = 0;
+
+Coordinates = {1: "North or South", 2: "West or East"}
+
+#Plotting Variables
+xAxis = []
+yAxisSucky = []
+yAxisUltra = []
+yAxisDumbLight = []
+yAxisSmrtLight = []
+TotalTime = 0
+CarJustGenerated = False
+CarIncomingNorthSouth = []
+CarIncomingEastWest = []
+TempLightColor = 'absolutlynothing'
+
+#This funciton is called when we see a car approaching a stop light
+def UltraSensingAction(StopLightState,IncomingCarDirection):
+
+    # Car coming north south and we have green going East West
+    if IncomingCarDirection == 1 and (StopLightState >= 7 and StopLightState < 15):
+        if StopLightState >= 7 and StopLightState < 12:
+            StopLightState += 3
+            return StopLightState
+        #Dont Skip Yellow
+        if StopLightState >= 12 and StopLightState < 15:
+            StopLightState = 14
+
+    # Car coming east west and we have green going North South
+    if IncomingCarDirection == 2 and (StopLightState >= 0 and StopLightState < 7):
+        if StopLightState >= 0 and StopLightState < 4:
+            StopLightState += 3
+            return StopLightState
+        #Dont Skip Yellow
+        if StopLightState >= 4 and StopLightState < 6:
+            StopLightState = 6
+
+    # Car coming North South and we have green going North South that will end before car gets there
+    #Catch Yellow
+    if IncomingCarDirection == 1 and StopLightState == 6 :
+        StopLightState = 5
+
+    # Car coming East West and we have green going East West that will end before car gets there
+    #Catch Yellow
+    if IncomingCarDirection == 2 and StopLightState == 14:
+        StopLightState = 13
+
+    #Cut off three seconds of red for North South Green
+    if IncomingCarDirection == 2 and StopLightState == 15:
+        StopLightState = 2
+
+    return StopLightState
+
+#This function below is the heart of our sequence from green to yellow to red
+def one():
+    CurrentLightsColors = {"LightNorthSouth": "Green", "LightWestEast": "Red"}
+    return CurrentLightsColors
+
+def two():
+    CurrentLightsColors = {"LightNorthSouth": "Red", "LightWestEast": "Green"}
+    return CurrentLightsColors
+
+def three():
+    CurrentLightsColors = {"LightNorthSouth": "Yellow", "LightWestEast": "Red"}
+    return CurrentLightsColors
+
+def four():
+    CurrentLightsColors = {"LightNorthSouth": "Red", "LightWestEast": "Yellow"}
+    return CurrentLightsColors
+
+#This dictionary below is the heart of our sequence from green to yellow to red
+switcher = { 1: one, 2: two, 3: three, 4: four,}
+
+def LightState(argument):
+    # Get the function from switcher dictionary
+    func = switcher.get(argument, "nothing")
+    # Execute the function
+    return func()
+
+# Only using Green light north south / east west
+# this while loop exectures through out the entire simulation
+while (cycles < 32):
+    # each cycle represents 1 second
+    cycles += 1
+
+    #StopLightState is the sequenctial varibale for our timer stop light
+    #0-6 green north south 7 yellow north south 8-14 green east west 15 yellow east west
+
+    StopLightState += 1
+    if StopLightState > 15:
+        StopLightState = 0
+
+    if (StopLightState >= 0 and StopLightState < 7):
+        CurrentLightColor = 1
+    if (StopLightState == 7):
+        CurrentLightColor = 3
+    if (StopLightState >= 8 and StopLightState < 15):
+        CurrentLightColor = 2
+    if (StopLightState == 15):
+        CurrentLightColor = 4
+
+    #StopLightStateULTRAFDBK is the sequenctial varibale for our stop light wit ultrasonic fdbck
+    #0-6 green north south 7 yellow north south 8-14 green east west 15 yellow east west
+
+    StopLightStateULTRAFDBK += 1
+    if StopLightStateULTRAFDBK > 15:
+        StopLightStateULTRAFDBK = 0
+
+    if (StopLightStateULTRAFDBK >= 0 and StopLightStateULTRAFDBK < 7):
+        CurrentLightColorULTRAFDBK = 1
+    if (StopLightStateULTRAFDBK == 7):
+        CurrentLightColorULTRAFDBK = 3
+    if (StopLightStateULTRAFDBK >= 8 and StopLightStateULTRAFDBK < 15):
+        CurrentLightColorULTRAFDBK = 2
+    if (StopLightStateULTRAFDBK == 15):
+        CurrentLightColorULTRAFDBK = 4
+
+    #every Cycle print what the state fo the light for both traffic lights are
+    print("NoUltraFDBK: ", LightState(CurrentLightColor))
+    print("UltraFDBK: ", LightState(CurrentLightColorULTRAFDBK))
+
+    #When car arrives, check if car gets through or stops
+    if cycles > IncomingCarsArrive and IncomingCar == True:
+        # No Feedback on System
+        # Does the incoming car get stopped
+        # Dumb TL
+        if ((IncomingCarDirection == 1 and (CurrentLightColor == 1 or CurrentLightColor == 3)) or (IncomingCarDirection == 2 and (CurrentLightColor == 2 or CurrentLightColor == 4))):
+            print("Car passed through, lucky")
+        else:
+            print("Car Stopped")
+            CarWaiting = True
+            CarsWaiting += 1
+
+        # SMURT TL
+        if ((IncomingCarDirection == 1 and (CurrentLightColorULTRAFDBK == 1 or CurrentLightColorULTRAFDBK == 3)) or (IncomingCarDirection == 2 and (CurrentLightColorULTRAFDBK == 2 or CurrentLightColorULTRAFDBK == 4))):
+            print("Car passed through, Smart")
+        else:
+            print("Car Stopped??")
+            UltraCarWaiting = True
+            UltraCarsWaiting += 1
+        IncomingCar = False
+
+    #GenerateCar
+    if cycles > GenerateCar:
+        GenerateCar = cycles + random.randint(0,2)
+        IncomingCarsArrive = cycles + 1
+        IncomingCar = True
+        CarJustGenerated = True
+        # 1 is North South 2 is East West
+        IncomingCarDirection = random.randint(1,2)
+        Direction = Coordinates[IncomingCarDirection]
+        print("Incoming Car Direction:",  Direction)
+        #Prototype 1 picked up 89.5 percent of Cars
+        #using 89.5 to see if we got cars here
+        DidWeSee = random.SystemRandom()
+        if DidWeSee.random() <= .895:
+            print("SawHim")
+            print("PreStoplightstate: ", StopLightStateULTRAFDBK)
+            if TookActionOnCar != True:
+                StopLightStateULTRAFDBK = UltraSensingAction(StopLightStateULTRAFDBK, IncomingCarDirection)
+            print("NewStoplightstate: ", StopLightStateULTRAFDBK)
+
+    #Check if the light changed, and hence, cars waiting are released
+    if CarWaiting == True:
+
+        CyclesWaiting += 1 * CarsWaiting
+        print("CyclesWaiting: ", CyclesWaiting )
+
+        if (LastLightColor != CurrentLightColor) and (LastLightColor == 3 or LastLightColor == 4):
+            print("Cars Released")
+            CarWaiting = False
+            CarsWaiting = 0
+
+        LastLightColor = CurrentLightColor
+
+    if UltraCarWaiting == True:
+
+        UltraCyclesWaiting += 1 * UltraCarWaiting
+        print("UltaCyclesWaiting: ", UltraCyclesWaiting )
+
+        if (LastUltraLightColor != CurrentLightColorULTRAFDBK) and (LastUltraLightColor == 3 or LastUltraLightColor == 4):
+            print("UltraCars Released")
+            UltraCarWaiting = False
+            UltraCarsWaiting = 0
+
+        LastUltraLightColor = CurrentLightColorULTRAFDBK
+
+    #reset cycle and run again
+    if (cycles == 32) and (RepsDone == False):
+        cycles = 0
+        RepsDone = True
+        GenerateCar = 0
+        IncomingCarsArrive = 0
+
+    # only take action on a car approaching the stop light once
+    if LightColorULTRAFDBKMemory != CurrentLightColorULTRAFDBK:
+        TookActionOnCar = False
+
+    LightColorULTRAFDBKMemory = CurrentLightColorULTRAFDBK
+
+
+    #Plot time waiting for ultra and other car
+    # Rest of code is setting up plots
+    TotalTime += 1
+    xAxis.append(TotalTime)
+    yAxisUltra.append(UltraCyclesWaiting)
+    yAxisSucky.append(CyclesWaiting)
+
+    if CurrentLightColor == 1:
+        TempLightColor = 'Green'
+    if CurrentLightColor == 3:
+        TempLightColor = 'Yellow'
+    if CurrentLightColor == 2 or CurrentLightColor == 4:
+        TempLightColor = 'Red'
+
+    yAxisDumbLight.append(TempLightColor)
+
+    if CurrentLightColorULTRAFDBK == 1:
+        TempLightColor = 'Green'
+    if CurrentLightColorULTRAFDBK == 3:
+        TempLightColor = 'Yellow'
+    if CurrentLightColorULTRAFDBK == 2 or CurrentLightColorULTRAFDBK == 4:
+        TempLightColor = 'Red'
+
+    yAxisSmrtLight.append(TempLightColor)
+
+    if CarJustGenerated and IncomingCarDirection == 1:
+        CarIncomingNorthSouth.append(TotalTime)
+
+    if CarJustGenerated and IncomingCarDirection == 2:
+        CarIncomingEastWest.append(TotalTime)
+
+    CarJustGenerated = False
+
+
+
+plt.plot(xAxis, yAxisUltra, label = "StopLightWithFDBK")
+plt.plot(xAxis, yAxisSucky, label = "TimerONLYStopLight")
+plt.ylabel('Time Cars have Waited at Stop Light')
+plt.xlabel('Total Time')
+plt.legend()
+
+
+print(yAxisDumbLight)
+print(yAxisSmrtLight)
+
+#plt.subplot(3,1,2)
+#plt.title('North Lights Red Green Yellow')
+#plt.plot(xAxis, yAxisDumbLight, 'tab:blue', label = "Dumb Light")
+#plt.plot(xAxis, yAxisSmrtLight, 'tab:orange', label = "Smrt Light")
+#for i in CarIncomingEastWest:
+    #plt.axvline(i, color = 'r')
+#for i in CarIncomingNorthSouth:
+    #plt.axvline(i, color = 'b')
+
+#plt.ylabel('Light Color')
+#plt.xlabel('Time')
+#plt.legend()
+
+#plt.subplot(3,1,3)
+#plt.title('North Lights Red Green Yellow')
+#plt.plot(xAxis, yAxisDumbLight, 'tab:blue', label = "Dumb Light")
+#plt.plot(xAxis, yAxisSmrtLight, 'tab:orange', label = "Smrt Light")
+#for i in CarIncomingEastWest:
+    #plt.axvline(i, color = 'r')
+#for i in CarIncomingNorthSouth:
+    #plt.axvline(i, color = 'b')
+
+#plt.ylabel('Light Color')
+#plt.xlabel('Time')
+#plt.legend()
+
+plt.show()
